@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { supabase } from '../../supabase'
 
@@ -13,6 +14,7 @@ export default function Calendario() {
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
 
   useEffect(() => { fetchTransactions() }, [currentMonth, currentYear])
+  useFocusEffect(useCallback(() => { fetchTransactions() }, [currentMonth, currentYear]))
 
   async function fetchTransactions() {
     const start = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`

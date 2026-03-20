@@ -19,6 +19,7 @@ export default function Movimientos() {
   const [amount, setAmount] = useState('')
   const [selectedCat, setSelectedCat] = useState('')
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string|null>(null)
   const [customCats, setCustomCats] = useState<string[]>([])
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customCatText, setCustomCatText] = useState('')
@@ -37,16 +38,25 @@ export default function Movimientos() {
     setTransactions(data || [])
   }
 
-  async function addTransaction() {
+  async function saveTransaction() {
     if (!name || !amount || !selectedCat) { Alert.alert('Error', 'Completá todos los campos'); return }
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const today = new Date().toISOString().split('T')[0]
-    const { error } = await supabase.from('transactions').insert({
-      user_id: user?.id, type: modalType, name, amount: parseFloat(amount), category: selectedCat, date: today
-    })
-    if (error) Alert.alert('Error', error.message)
-    else { fetchTransactions(); closeModal() }
+    if (editingId) {
+      const { error } = await supabase.from('transactions')
+        .update({ name, amount: parseFloat(amount), category: selectedCat, type: modalType })
+        .eq('id', editingId)
+      if (error) Alert.alert('Error', error.message)
+      else { fetchTransactions(); closeModal() }
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      const d = new Date()
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      const { error } = await supabase.from('transactions').insert({
+        user_id: user?.id, type: modalType, name, amount: parseFloat(amount), category: selectedCat, date: today
+      })
+      if (error) Alert.alert('Error', error.message)
+      else { fetchTransactions(); closeModal() }
+    }
     setLoading(false)
   }
 
@@ -61,11 +71,25 @@ export default function Movimientos() {
   }
 
   function openModal(type: 'income'|'expense'|'investment') {
+    setEditingId(null)
     setModalType(type); setName(''); setAmount(''); setSelectedCat('')
     setCustomCats([]); setShowCustomInput(false); setCustomCatText('')
     setModalVisible(true)
   }
-  function closeModal() { setModalVisible(false) }
+
+  function openEditModal(t: any) {
+    setEditingId(t.id)
+    setModalType(t.type)
+    setName(t.name)
+    setAmount(String(t.amount))
+    setShowCustomInput(false); setCustomCatText('')
+    const isCustom = !CATS[t.type as 'income'|'expense'|'investment'].includes(t.category)
+    setCustomCats(isCustom ? [t.category] : [])
+    setSelectedCat(t.category)
+    setModalVisible(true)
+  }
+
+  function closeModal() { setEditingId(null); setModalVisible(false) }
 
   function confirmCustomCat() {
     const trimmed = customCatText.trim()
@@ -99,6 +123,9 @@ export default function Movimientos() {
         <Text style={[s.itemAmount, {color: type==='income'?'#3bf5a0':type==='investment'?'#00c2b8':'#ff4d6a'}]}>
           {type==='income'?'+':type==='investment'?'▲':'-'}{fmt(t.amount)}
         </Text>
+        <TouchableOpacity style={s.editBtn} onPress={() => openEditModal(t)}>
+          <Text style={s.editBtnText}>✏️</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={s.delBtn} onPress={() => deleteTransaction(t.id)}>
           <Text style={s.delBtnText}>×</Text>
         </TouchableOpacity>
@@ -159,7 +186,7 @@ export default function Movimientos() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <TouchableOpacity style={s.modalBg} onPress={closeModal} />
           <View style={s.modal}>
-            <Text style={s.modalTitle}>{modalType === 'income' ? 'Nuevo ingreso' : modalType === 'expense' ? 'Nuevo gasto' : 'Nueva inversión'}</Text>
+            <Text style={s.modalTitle}>{editingId ? (modalType === 'income' ? 'Editar ingreso' : modalType === 'expense' ? 'Editar gasto' : 'Editar inversión') : (modalType === 'income' ? 'Nuevo ingreso' : modalType === 'expense' ? 'Nuevo gasto' : 'Nueva inversión')}</Text>
             <TextInput style={s.input} placeholder="Descripción" placeholderTextColor="#555" value={name} onChangeText={setName} />
             <TextInput style={s.input} placeholder="Monto" placeholderTextColor="#555" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
             <Text style={s.catLabel}>CATEGORÍA</Text>
@@ -195,7 +222,7 @@ export default function Movimientos() {
               <TouchableOpacity style={s.btnCancel} onPress={closeModal}>
                 <Text style={s.btnCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}, modalType==='investment' && {backgroundColor:'#00c2b8'}]} onPress={addTransaction} disabled={loading}>
+              <TouchableOpacity style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}, modalType==='investment' && {backgroundColor:'#00c2b8'}]} onPress={saveTransaction} disabled={loading}>
                 <Text style={s.btnConfirmText}>{loading ? 'Guardando...' : 'Guardar'}</Text>
               </TouchableOpacity>
             </View>
@@ -224,7 +251,9 @@ const s = StyleSheet.create({
   itemName: { color:'#f0f0f0', fontWeight:'700', fontSize:14 },
   itemSub: { color:'#555', fontSize:11, marginTop:2 },
   itemAmount: { fontWeight:'700', fontSize:14 },
-  delBtn: { marginLeft:8, padding:4 },
+  editBtn: { marginLeft:8, padding:4 },
+  editBtnText: { fontSize:14 },
+  delBtn: { marginLeft:4, padding:4 },
   delBtnText: { color:'#555', fontSize:22, fontWeight:'300' },
   empty: { color:'#333', fontSize:12, textAlign:'center', padding:20, borderWidth:1, borderColor:'#2a2a30', borderRadius:12, borderStyle:'dashed' },
   modalOverlay: { flex:1, justifyContent:'flex-end' },
