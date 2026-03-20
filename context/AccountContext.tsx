@@ -69,6 +69,17 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     if (data) setPlan(data.plan as 'free' | 'pro')
   }, [])
 
+  // Free plan: always lock to the first account
+  useEffect(() => {
+    if (plan === 'free' && accounts.length > 0) {
+      const first = accounts[0]
+      if (currentAccountRef.current?.id !== first.id) {
+        currentAccountRef.current = first
+        setCurrentAccountState(first)
+      }
+    }
+  }, [plan, accounts])
+
   useEffect(() => {
     refreshAccounts()
     refreshPlan()

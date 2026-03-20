@@ -3,11 +3,15 @@ import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { useAccount } from '../context/AccountContext'
 import { supabase } from '../supabase'
 
+function alertProFeature() {
+  Alert.alert('Función Pro', 'Tener múltiples cuentas requiere el plan Pro.', [{ text: 'Entendido' }])
+}
+
 const ACCOUNT_ICONS = ['💼','🏠','🎯','🚀','💡','🎓','🏋️','🎮','🌍','💰','🏦','📊']
 const ACCOUNT_COLORS = ['#c8f135','#3bf5a0','#ff4d6a','#00c2b8','#5b9cf6','#f5a623','#7c5cbf','#ff6b9d','#4ecdc4','#a8e063']
 
 export default function AccountSelector() {
-  const { accounts, currentAccount, setCurrentAccount, refreshAccounts } = useAccount()
+  const { accounts, currentAccount, setCurrentAccount, refreshAccounts, plan } = useAccount()
   const [showPicker, setShowPicker] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [editingAccount, setEditingAccount] = useState<any>(null)
@@ -88,19 +92,22 @@ export default function AccountSelector() {
   return (
     <>
       {accounts.length === 0 ? (
-        <TouchableOpacity style={s.selectorEmpty} onPress={openCreate}>
+        <TouchableOpacity style={s.selectorEmpty} onPress={plan === 'free' ? alertProFeature : openCreate}>
           <Text style={s.selectorEmptyText}>+ Nueva cuenta</Text>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={[s.selector, { borderColor: currentAccount?.color || '#c8f135' }]}
-          onPress={() => setShowPicker(true)}
+          onPress={() => plan === 'free' ? alertProFeature() : setShowPicker(true)}
         >
           <Text style={s.selectorIcon}>{currentAccount?.icon}</Text>
           <Text style={[s.selectorName, { color: currentAccount?.color || '#f0f0f0' }]} numberOfLines={1}>
             {currentAccount?.name}
           </Text>
-          <Text style={s.selectorChevron}>⌄</Text>
+          {plan === 'free'
+            ? <Text style={s.selectorLock}>🔒</Text>
+            : <Text style={s.selectorChevron}>⌄</Text>
+          }
         </TouchableOpacity>
       )}
 
@@ -130,8 +137,9 @@ export default function AccountSelector() {
                 </View>
               ))}
             </ScrollView>
-            <TouchableOpacity style={s.newBtn} onPress={openCreate}>
+            <TouchableOpacity style={s.newBtn} onPress={plan === 'free' ? alertProFeature : openCreate}>
               <Text style={s.newBtnText}>+ Nueva cuenta</Text>
+              {plan === 'free' && <Text style={s.newBtnPro}>PRO</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -200,6 +208,7 @@ const s = StyleSheet.create({
   selectorIcon: { fontSize:14 },
   selectorName: { fontSize:13, fontWeight:'700', flex:1 },
   selectorChevron: { color:'#555', fontSize:12 },
+  selectorLock: { fontSize:10 },
   selectorEmpty: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:20, paddingHorizontal:14, paddingVertical:7 },
   selectorEmptyText: { color:'#c8f135', fontSize:12, fontWeight:'700' },
   overlay: { flex:1, justifyContent:'flex-end' },
@@ -213,8 +222,9 @@ const s = StyleSheet.create({
   accCheck: { fontSize:16, fontWeight:'800' },
   accEdit: { padding:8 },
   accEditText: { fontSize:18, color:'#555' },
-  newBtn: { marginTop:12, backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:12, padding:14, alignItems:'center' },
+  newBtn: { marginTop:12, backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:12, padding:14, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8 },
   newBtnText: { color:'#c8f135', fontWeight:'700', fontSize:14 },
+  newBtnPro: { color:'#c8f135', fontSize:9, fontWeight:'800', letterSpacing:1, backgroundColor:'rgba(200,241,53,0.12)', borderWidth:1, borderColor:'rgba(200,241,53,0.3)', borderRadius:6, paddingHorizontal:5, paddingVertical:1 },
   input: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:10, padding:12, color:'#f0f0f0', fontSize:16, marginBottom:14 },
   label: { color:'#555', fontSize:10, fontWeight:'700', letterSpacing:1.5, marginBottom:8 },
   iconGrid: { flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:14 },

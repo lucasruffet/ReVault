@@ -156,14 +156,26 @@ export default function Perfil() {
           <Text style={s.sectionTitle}>MIS CUENTAS</Text>
           {accounts.length === 0
             ? <Text style={s.empty}>Sin cuentas — creá una desde el selector</Text>
-            : accounts.map(acc => (
-              <TouchableOpacity key={acc.id} style={[s.accItem, currentAccount?.id === acc.id && { borderColor: acc.color }]}
-                onPress={() => setCurrentAccount(acc)}>
-                <Text style={s.accIcon}>{acc.icon}</Text>
-                <Text style={[s.accName, { color: acc.color }]}>{acc.name}</Text>
-                {currentAccount?.id === acc.id && <Text style={[s.accCheck, { color: acc.color }]}>✓</Text>}
-              </TouchableOpacity>
-            ))
+            : accounts.map((acc, i) => {
+              const locked = plan === 'free' && i > 0
+              return (
+                <TouchableOpacity
+                  key={acc.id}
+                  style={[s.accItem, currentAccount?.id === acc.id && { borderColor: acc.color }, locked && s.accItemLocked]}
+                  onPress={() => locked
+                    ? Alert.alert('Función Pro', 'Tener múltiples cuentas requiere el plan Pro.', [{ text: 'Entendido' }])
+                    : setCurrentAccount(acc)
+                  }
+                >
+                  <Text style={[s.accIcon, locked && s.lockedOpacity]}>{acc.icon}</Text>
+                  <Text style={[s.accName, { color: locked ? '#555' : acc.color }]}>{acc.name}</Text>
+                  {locked
+                    ? <Text style={s.accLock}>🔒</Text>
+                    : currentAccount?.id === acc.id && <Text style={[s.accCheck, { color: acc.color }]}>✓</Text>
+                  }
+                </TouchableOpacity>
+              )
+            })
           }
         </View>
 
@@ -210,6 +222,9 @@ const s = StyleSheet.create({
   accIcon: { fontSize:18 },
   accName: { flex:1, fontSize:14, fontWeight:'700' },
   accCheck: { fontSize:16, fontWeight:'800' },
+  accItemLocked: { opacity: 0.45 },
+  accLock: { fontSize:13 },
+  lockedOpacity: {},
   empty: { color:'#333', fontSize:12, textAlign:'center', padding:20 },
   logoutBtn: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#ff4d6a', borderRadius:12, padding:14, alignItems:'center', marginTop:8 },
   logoutText: { color:'#ff4d6a', fontWeight:'700', fontSize:15 },
