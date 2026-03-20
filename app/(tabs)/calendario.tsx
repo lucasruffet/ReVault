@@ -1,25 +1,30 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import AccountSelector from '../../components/AccountSelector'
+import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function Calendario() {
+  const { currentAccount } = useAccount()
   const [transactions, setTransactions] = useState<any[]>([])
   const [selectedDay, setSelectedDay] = useState<number|null>(null)
   const now = new Date()
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
 
-  useEffect(() => { fetchTransactions() }, [currentMonth, currentYear])
-  useFocusEffect(useCallback(() => { fetchTransactions() }, [currentMonth, currentYear]))
+  useEffect(() => { fetchTransactions() }, [currentMonth, currentYear, currentAccount])
+  useFocusEffect(useCallback(() => { fetchTransactions() }, [currentMonth, currentYear, currentAccount]))
 
   async function fetchTransactions() {
+    if (!currentAccount) { setTransactions([]); return }
     const start = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`
     const end = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-31`
     const { data } = await supabase.from('transactions').select('*')
+      .eq('account_id', currentAccount.id)
       .gte('date', start).lte('date', end)
     setTransactions(data || [])
     setSelectedDay(null)
@@ -49,61 +54,72 @@ export default function Calendario() {
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => changeMonth(-1)}><Text style={s.arrow}>‹</Text></TouchableOpacity>
-        <Text style={s.monthTitle}>{MONTHS[currentMonth]} {currentYear}</Text>
-        <TouchableOpacity onPress={() => changeMonth(1)}><Text style={s.arrow}>›</Text></TouchableOpacity>
+        <View style={s.headerLeft}>
+          <TouchableOpacity onPress={() => changeMonth(-1)}><Text style={s.arrow}>‹</Text></TouchableOpacity>
+          <Text style={s.monthTitle}>{MONTHS[currentMonth]} {currentYear}</Text>
+          <TouchableOpacity onPress={() => changeMonth(1)}><Text style={s.arrow}>›</Text></TouchableOpacity>
+        </View>
+        <AccountSelector />
       </View>
 
-      <View style={s.calCard}>
-        <View style={s.dayNames}>
-          {DAYS.map(d => <Text key={d} style={s.dayName}>{d}</Text>)}
+      {!currentAccount ? (
+        <View style={s.noAccount}>
+          <Text style={s.noAccountText}>Seleccioná una cuenta para ver el calendario</Text>
         </View>
-        <View style={s.grid}>
-          {Array(firstDay).fill(null).map((_, i) => <View key={`e${i}`} style={s.dayCell} />)}
-          {Array(daysInMonth).fill(null).map((_, i) => {
-            const day = i + 1
-            const isToday = isCurrentMonth && today.getDate() === day
-            const hasData = daysWithData.has(day)
-            const isSelected = selectedDay === day
-            return (
-              <TouchableOpacity
-                key={day}
-                style={[s.dayCell, isToday && s.today, isSelected && s.selected]}
-                onPress={() => setSelectedDay(isSelected ? null : day)}
-              >
-                <Text style={[s.dayNum, isToday && s.todayText, isSelected && s.selectedText]}>{day}</Text>
-                {hasData && <View style={[s.dot, isSelected && {backgroundColor:'#0d0d0f'}]} />}
-              </TouchableOpacity>
-            )
-          })}
-        </View>
-      </View>
-
-      {selectedDay && (
-        <ScrollView style={s.detail} showsVerticalScrollIndicator={false}>
-          <View style={s.detailHeader}>
-            <Text style={s.detailTitle}>{selectedDay} de {MONTHS[currentMonth]}</Text>
-            <View style={s.detailTotals}>
-              {dayIncome > 0 && <Text style={s.detailIn}>+{fmt(dayIncome)}</Text>}
-              {dayExpense > 0 && <Text style={s.detailOut}>-{fmt(dayExpense)}</Text>}
+      ) : (
+        <>
+          <View style={s.calCard}>
+            <View style={s.dayNames}>
+              {DAYS.map(d => <Text key={d} style={s.dayName}>{d}</Text>)}
+            </View>
+            <View style={s.grid}>
+              {Array(firstDay).fill(null).map((_, i) => <View key={`e${i}`} style={s.dayCell} />)}
+              {Array(daysInMonth).fill(null).map((_, i) => {
+                const day = i + 1
+                const isToday = isCurrentMonth && today.getDate() === day
+                const hasData = daysWithData.has(day)
+                const isSelected = selectedDay === day
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={[s.dayCell, isToday && s.today, isSelected && s.selected]}
+                    onPress={() => setSelectedDay(isSelected ? null : day)}
+                  >
+                    <Text style={[s.dayNum, isToday && s.todayText, isSelected && s.selectedText]}>{day}</Text>
+                    {hasData && <View style={[s.dot, isSelected && {backgroundColor:'#0d0d0f'}]} />}
+                  </TouchableOpacity>
+                )
+              })}
             </View>
           </View>
-          {dayTransactions.length === 0
-            ? <Text style={s.empty}>Sin movimientos este día</Text>
-            : dayTransactions.map(t => (
-              <View key={t.id} style={s.item}>
-                <Text style={s.itemEmoji}>{t.category.split(' ')[0]}</Text>
-                <View style={s.itemInfo}>
-                  <Text style={s.itemName}>{t.name}</Text>
-                  <Text style={s.itemSub}>{t.category.split(' ').slice(1).join(' ')}</Text>
+
+          {selectedDay && (
+            <ScrollView style={s.detail} showsVerticalScrollIndicator={false}>
+              <View style={s.detailHeader}>
+                <Text style={s.detailTitle}>{selectedDay} de {MONTHS[currentMonth]}</Text>
+                <View style={s.detailTotals}>
+                  {dayIncome > 0 && <Text style={s.detailIn}>+{fmt(dayIncome)}</Text>}
+                  {dayExpense > 0 && <Text style={s.detailOut}>-{fmt(dayExpense)}</Text>}
                 </View>
-                <Text style={[s.itemAmount, t.type === 'income' ? {color:'#3bf5a0'} : {color:'#ff4d6a'}]}>
-                  {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
-                </Text>
               </View>
-            ))
-          }
-        </ScrollView>
+              {dayTransactions.length === 0
+                ? <Text style={s.empty}>Sin movimientos este día</Text>
+                : dayTransactions.map(t => (
+                  <View key={t.id} style={s.item}>
+                    <Text style={s.itemEmoji}>{t.category.split(' ')[0]}</Text>
+                    <View style={s.itemInfo}>
+                      <Text style={s.itemName}>{t.name}</Text>
+                      <Text style={s.itemSub}>{t.category.split(' ').slice(1).join(' ')}</Text>
+                    </View>
+                    <Text style={[s.itemAmount, t.type === 'income' ? {color:'#3bf5a0'} : {color:'#ff4d6a'}]}>
+                      {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
+                    </Text>
+                  </View>
+                ))
+              }
+            </ScrollView>
+          )}
+        </>
       )}
     </View>
   )
@@ -112,13 +128,17 @@ export default function Calendario() {
 const s = StyleSheet.create({
   container: { flex:1, backgroundColor:'#0d0d0f' },
   header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, paddingTop:60 },
-  arrow: { color:'#f0f0f0', fontSize:28, paddingHorizontal:10 },
-  monthTitle: { color:'#f0f0f0', fontSize:22, fontWeight:'800' },
+  headerLeft: { flexDirection:'row', alignItems:'center', gap:4 },
+  arrow: { color:'#f0f0f0', fontSize:28, paddingHorizontal:6 },
+  monthTitle: { color:'#f0f0f0', fontSize:18, fontWeight:'800' },
+  noAccount: { flex:1, alignItems:'center', justifyContent:'center' },
+  noAccountText: { color:'#555', fontSize:14 },
   calCard: { backgroundColor:'#141416', borderWidth:1, borderColor:'#2a2a30', borderRadius:16, margin:16, padding:12 },
   dayNames: { flexDirection:'row', marginBottom:8 },
   dayName: { flex:1, textAlign:'center', color:'#555', fontSize:10, fontWeight:'700' },
   grid: { flexDirection:'row', flexWrap:'wrap' },
-dayCell: { width:'14.28%', height:44, alignItems:'center', justifyContent:'center', borderRadius:8, position:'relative' },  today: { backgroundColor:'rgba(200,241,53,0.12)' },
+  dayCell: { width:'14.28%', height:44, alignItems:'center', justifyContent:'center', borderRadius:8, position:'relative' },
+  today: { backgroundColor:'rgba(200,241,53,0.12)' },
   selected: { backgroundColor:'#c8f135' },
   dayNum: { color:'#f0f0f0', fontSize:13, fontWeight:'600' },
   todayText: { color:'#c8f135' },

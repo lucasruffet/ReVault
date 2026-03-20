@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(git add:*)",
+      "Bash(xargs -I {} head -20 \"{}\")",
+      "mcp__claude_ai_Supabase__list_tables"
     ]
   }
 }

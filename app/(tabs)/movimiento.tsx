@@ -1,7 +1,12 @@
-import { useFocusEffect } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import AccountSelector from '../../components/AccountSelector'
+import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
+
+// xlsx, FileSystem and Sharing are required lazily inside exportToExcel to avoid
+// crashing the app at startup — xlsx accesses Node.js globals not available in RN.
 
 const CATS = {
   income: ['💼 Sueldo','💻 Freelance','📈 Inversiones','🎁 Otros'],
@@ -10,9 +15,14 @@ const CATS = {
 }
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const FREE_TX_LIMIT = 50
 
 export default function Movimientos() {
+  const { currentAccount, plan } = useAccount()
   const [transactions, setTransactions] = useState<any[]>([])
+  const [monthCount, setMonthCount] = useState(0)
+  const [budgetWarnings, setBudgetWarnings] = useState<string[]>([])
+  const [exporting, setExporting] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [modalType, setModalType] = useState<'income'|'expense'|'investment'>('income')
   const [name, setName] = useState('')
@@ -27,19 +37,121 @@ export default function Movimientos() {
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
 
-  useFocusEffect(useCallback(() => { fetchTransactions() }, [currentMonth, currentYear]))
-  useEffect(() => { fetchTransactions() }, [currentMonth, currentYear])
+  useFocusEffect(useCallback(() => { fetchTransactions() }, [currentMonth, currentYear, currentAccount]))
+  useEffect(() => { fetchTransactions() }, [currentMonth, currentYear, currentAccount])
 
   async function fetchTransactions() {
+    if (!currentAccount) { setTransactions([]); setBudgetWarnings([]); return }
     const start = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`
     const end = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-31`
     const { data } = await supabase.from('transactions').select('*')
+      .eq('account_id', currentAccount.id)
       .gte('date', start).lte('date', end).order('date', { ascending: false })
-    setTransactions(data || [])
+    const txs = data || []
+    setTransactions(txs)
+    setMonthCount(txs.length)
+    if (plan === 'pro') checkBudgets(txs)
+  }
+
+  async function checkBudgets(txs: any[]) {
+    if (!currentAccount) return
+    const { data: budgets } = await supabase.from('budgets')
+      .select('*').eq('account_id', currentAccount.id)
+    if (!budgets || budgets.length === 0) { setBudgetWarnings([]); return }
+
+    // Sum expenses per category (strip emoji prefix for matching)
+    const spent: Record<string, number> = {}
+    txs.filter(t => t.type === 'expense').forEach(t => {
+      const key = t.category
+      spent[key] = (spent[key] || 0) + t.amount
+    })
+
+    const warnings: string[] = []
+    budgets.forEach((b: any) => {
+      const catSpent = spent[b.category] || 0
+      const pct = catSpent / b.amount
+      if (pct >= 1) {
+        warnings.push(`🚨 ${b.category}: superaste el presupuesto ($${catSpent.toLocaleString('es-AR',{maximumFractionDigits:0})} / $${b.amount.toLocaleString('es-AR',{maximumFractionDigits:0})})`)
+      } else if (pct >= 0.8) {
+        warnings.push(`⚠️ ${b.category}: ${Math.round(pct*100)}% del presupuesto ($${catSpent.toLocaleString('es-AR',{maximumFractionDigits:0})} / $${b.amount.toLocaleString('es-AR',{maximumFractionDigits:0})})`)
+      }
+    })
+    setBudgetWarnings(warnings)
+  }
+
+  async function exportToExcel() {
+    if (plan !== 'pro') {
+      Alert.alert('Plan Pro requerido', 'Exportar a Excel es una función exclusiva del plan Pro.')
+      return
+    }
+    if (transactions.length === 0) {
+      Alert.alert('Sin datos', 'No hay transacciones para exportar en este mes.')
+      return
+    }
+    setExporting(true)
+    try {
+      // Dynamic requires — never import xlsx/FileSystem/Sharing at module level in RN
+      const XLSX = require('xlsx')
+      const FileSystem = require('expo-file-system/legacy')
+      const Sharing = require('expo-sharing')
+
+      const typeLabel = (t: string) => t === 'income' ? 'Ingreso' : t === 'expense' ? 'Gasto' : 'Inversión'
+      const rows = transactions.map(t => ({
+        Fecha: t.date,
+        Descripción: t.name,
+        Categoría: t.category.split(' ').slice(1).join(' ') || t.category,
+        Tipo: typeLabel(t.type),
+        Monto: t.type === 'income' ? t.amount : -t.amount,
+      }))
+
+      const totalIncome = transactions.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0)
+      const totalExpense = transactions.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0)
+      const totalInvest = transactions.filter(t => t.type === 'investment').reduce((a, b) => a + b.amount, 0)
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 14 }]
+      XLSX.utils.sheet_add_aoa(ws, [
+        ['RESUMEN DEL MES'],
+        ['Total ingresos', totalIncome],
+        ['Total gastos', totalExpense],
+        ['Total inversiones', totalInvest],
+        ['Balance', totalIncome - totalExpense - totalInvest],
+      ], { origin: `A${rows.length + 3}` })
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, `${MONTHS[currentMonth]} ${currentYear}`)
+
+      const wbBase64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' })
+      const fileName = `CashRuff_${MONTHS[currentMonth]}_${currentYear}.xlsx`
+      const filePath = FileSystem.cacheDirectory + fileName
+      await FileSystem.writeAsStringAsync(filePath, wbBase64, { encoding: 'base64' })
+
+      const canShare = await Sharing.isAvailableAsync()
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: `Exportar ${MONTHS[currentMonth]} ${currentYear}`,
+          UTI: 'com.microsoft.excel.xlsx',
+        })
+      } else {
+        Alert.alert('Archivo guardado', `Guardado en: ${filePath}`)
+      }
+    } catch (e: any) {
+      Alert.alert('Error al exportar', e?.message || 'No se pudo generar el archivo')
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function saveTransaction() {
     if (!name || !amount || !selectedCat) { Alert.alert('Error', 'Completá todos los campos'); return }
+    if (!currentAccount) { Alert.alert('Error', 'Seleccioná una cuenta primero'); return }
+
+    if (!editingId && plan === 'free' && monthCount >= FREE_TX_LIMIT) {
+      Alert.alert('Límite alcanzado', `El plan gratuito permite hasta ${FREE_TX_LIMIT} transacciones por mes. Mejorá a Pro para continuar.`)
+      return
+    }
+
     setLoading(true)
     if (editingId) {
       const { error } = await supabase.from('transactions')
@@ -52,7 +164,8 @@ export default function Movimientos() {
       const d = new Date()
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
       const { error } = await supabase.from('transactions').insert({
-        user_id: user?.id, type: modalType, name, amount: parseFloat(amount), category: selectedCat, date: today
+        user_id: user?.id, account_id: currentAccount.id, type: modalType,
+        name, amount: parseFloat(amount), category: selectedCat, date: today
       })
       if (error) Alert.alert('Error', error.message)
       else { fetchTransactions(); closeModal() }
@@ -71,6 +184,7 @@ export default function Movimientos() {
   }
 
   function openModal(type: 'income'|'expense'|'investment') {
+    if (!currentAccount) { Alert.alert('Error', 'Seleccioná una cuenta primero'); return }
     setEditingId(null)
     setModalType(type); setName(''); setAmount(''); setSelectedCat('')
     setCustomCats([]); setShowCustomInput(false); setCustomCatText('')
@@ -111,6 +225,7 @@ export default function Movimientos() {
   const expense = transactions.filter(t => t.type === 'expense')
   const investment = transactions.filter(t => t.type === 'investment')
   const fmt = (n: number) => '$' + Math.abs(n).toLocaleString('es-AR', {maximumFractionDigits:0})
+  const isAtLimit = plan === 'free' && monthCount >= FREE_TX_LIMIT
 
   const renderItem = (t: any, type: 'income'|'expense'|'investment') => (
     <View key={t.id} style={s.itemWrap}>
@@ -136,57 +251,104 @@ export default function Movimientos() {
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => changeMonth(-1)}><Text style={s.arrow}>‹</Text></TouchableOpacity>
-        <Text style={s.monthTitle}>{MONTHS[currentMonth]} {currentYear}</Text>
-        <TouchableOpacity onPress={() => changeMonth(1)}><Text style={s.arrow}>›</Text></TouchableOpacity>
+        <View style={s.headerLeft}>
+          <TouchableOpacity onPress={() => changeMonth(-1)}><Text style={s.arrow}>‹</Text></TouchableOpacity>
+          <Text style={s.monthTitle}>{MONTHS[currentMonth]} {currentYear}</Text>
+          <TouchableOpacity onPress={() => changeMonth(1)}><Text style={s.arrow}>›</Text></TouchableOpacity>
+        </View>
+        <View style={s.headerRight}>
+          {plan === 'pro' && currentAccount && (
+            <TouchableOpacity style={s.budgetBtn} onPress={() => router.push('/presupuesto')}>
+              <Text style={s.budgetBtnText}>🎯</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[s.exportBtn, exporting && { opacity: 0.5 }]}
+            onPress={exportToExcel}
+            disabled={exporting}
+          >
+            <Text style={s.exportBtnText}>{exporting ? '...' : '📊'}</Text>
+          </TouchableOpacity>
+          <AccountSelector />
+        </View>
       </View>
 
-      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
-        <View style={s.section}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>INGRESOS</Text>
-            <TouchableOpacity style={s.addBtn} onPress={() => openModal('income')}>
-              <Text style={s.addBtnText}>+ Agregar</Text>
-            </TouchableOpacity>
-          </View>
-          {income.length === 0
-            ? <Text style={s.empty}>Sin ingresos</Text>
-            : income.map(t => renderItem(t, 'income'))
-          }
+      {/* Free plan limit banner */}
+      {isAtLimit && (
+        <View style={s.limitBanner}>
+          <Text style={s.limitBannerText}>Límite de {FREE_TX_LIMIT} transacciones alcanzado</Text>
+          <TouchableOpacity><Text style={s.limitBannerUpgrade}>Mejorar a Pro</Text></TouchableOpacity>
         </View>
+      )}
 
-        <View style={s.section}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>GASTOS</Text>
-            <TouchableOpacity style={[s.addBtn, {backgroundColor:'#ff4d6a'}]} onPress={() => openModal('expense')}>
-              <Text style={s.addBtnText}>+ Agregar</Text>
+      {/* Budget warning banners (Pro only) */}
+      {budgetWarnings.length > 0 && (
+        <View style={s.warningContainer}>
+          {budgetWarnings.map((w, i) => (
+            <TouchableOpacity key={i} style={[s.warningBanner, w.startsWith('🚨') && s.warningBannerOver]}
+              onPress={() => router.push('/presupuesto')}>
+              <Text style={[s.warningText, w.startsWith('🚨') && s.warningTextOver]}>{w}</Text>
             </TouchableOpacity>
-          </View>
-          {expense.length === 0
-            ? <Text style={s.empty}>Sin gastos</Text>
-            : expense.map(t => renderItem(t, 'expense'))
-          }
+          ))}
         </View>
+      )}
 
-        <View style={s.section}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>INVERSIONES</Text>
-            <TouchableOpacity style={[s.addBtn, {backgroundColor:'#00c2b8'}]} onPress={() => openModal('investment')}>
-              <Text style={s.addBtnText}>+ Agregar</Text>
-            </TouchableOpacity>
-          </View>
-          {investment.length === 0
-            ? <Text style={s.empty}>Sin inversiones</Text>
-            : investment.map(t => renderItem(t, 'investment'))
-          }
+      {!currentAccount ? (
+        <View style={s.noAccount}>
+          <Text style={s.noAccountText}>Creá una cuenta para empezar</Text>
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>INGRESOS</Text>
+              <TouchableOpacity style={s.addBtn} onPress={() => openModal('income')}>
+                <Text style={s.addBtnText}>+ Agregar</Text>
+              </TouchableOpacity>
+            </View>
+            {income.length === 0
+              ? <Text style={s.empty}>Sin ingresos</Text>
+              : income.map(t => renderItem(t, 'income'))
+            }
+          </View>
+
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>GASTOS</Text>
+              <TouchableOpacity style={[s.addBtn, {backgroundColor:'#ff4d6a'}]} onPress={() => openModal('expense')}>
+                <Text style={s.addBtnText}>+ Agregar</Text>
+              </TouchableOpacity>
+            </View>
+            {expense.length === 0
+              ? <Text style={s.empty}>Sin gastos</Text>
+              : expense.map(t => renderItem(t, 'expense'))
+            }
+          </View>
+
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>INVERSIONES</Text>
+              <TouchableOpacity style={[s.addBtn, {backgroundColor:'#00c2b8'}]} onPress={() => openModal('investment')}>
+                <Text style={s.addBtnText}>+ Agregar</Text>
+              </TouchableOpacity>
+            </View>
+            {investment.length === 0
+              ? <Text style={s.empty}>Sin inversiones</Text>
+              : investment.map(t => renderItem(t, 'investment'))
+            }
+          </View>
+        </ScrollView>
+      )}
 
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <TouchableOpacity style={s.modalBg} onPress={closeModal} />
           <View style={s.modal}>
-            <Text style={s.modalTitle}>{editingId ? (modalType === 'income' ? 'Editar ingreso' : modalType === 'expense' ? 'Editar gasto' : 'Editar inversión') : (modalType === 'income' ? 'Nuevo ingreso' : modalType === 'expense' ? 'Nuevo gasto' : 'Nueva inversión')}</Text>
+            <Text style={s.modalTitle}>
+              {editingId
+                ? (modalType === 'income' ? 'Editar ingreso' : modalType === 'expense' ? 'Editar gasto' : 'Editar inversión')
+                : (modalType === 'income' ? 'Nuevo ingreso' : modalType === 'expense' ? 'Nuevo gasto' : 'Nueva inversión')}
+            </Text>
             <TextInput style={s.input} placeholder="Descripción" placeholderTextColor="#555" value={name} onChangeText={setName} />
             <TextInput style={s.input} placeholder="Monto" placeholderTextColor="#555" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
             <Text style={s.catLabel}>CATEGORÍA</Text>
@@ -222,7 +384,10 @@ export default function Movimientos() {
               <TouchableOpacity style={s.btnCancel} onPress={closeModal}>
                 <Text style={s.btnCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}, modalType==='investment' && {backgroundColor:'#00c2b8'}]} onPress={saveTransaction} disabled={loading}>
+              <TouchableOpacity
+                style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}, modalType==='investment' && {backgroundColor:'#00c2b8'}]}
+                onPress={saveTransaction} disabled={loading}
+              >
                 <Text style={s.btnConfirmText}>{loading ? 'Guardando...' : 'Guardar'}</Text>
               </TouchableOpacity>
             </View>
@@ -235,9 +400,25 @@ export default function Movimientos() {
 
 const s = StyleSheet.create({
   container: { flex:1, backgroundColor:'#0d0d0f' },
-  header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, paddingTop:60 },
-  arrow: { color:'#f0f0f0', fontSize:28, paddingHorizontal:10 },
-  monthTitle: { color:'#f0f0f0', fontSize:22, fontWeight:'800' },
+  header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:16, paddingTop:60 },
+  headerLeft: { flexDirection:'row', alignItems:'center', gap:4 },
+  headerRight: { flexDirection:'row', alignItems:'center', gap:8 },
+  arrow: { color:'#f0f0f0', fontSize:28, paddingHorizontal:6 },
+  monthTitle: { color:'#f0f0f0', fontSize:18, fontWeight:'800' },
+  budgetBtn: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:20, width:34, height:34, alignItems:'center', justifyContent:'center' },
+  budgetBtnText: { fontSize:16 },
+  exportBtn: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:20, width:34, height:34, alignItems:'center', justifyContent:'center' },
+  exportBtnText: { fontSize:16 },
+  limitBanner: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', backgroundColor:'#2a0a0a', borderBottomWidth:1, borderBottomColor:'#5a1818', paddingHorizontal:16, paddingVertical:8 },
+  limitBannerText: { color:'#ff4d6a', fontSize:11 },
+  limitBannerUpgrade: { color:'#c8f135', fontSize:11, fontWeight:'700' },
+  warningContainer: { paddingHorizontal:16, paddingTop:8, gap:6 },
+  warningBanner: { backgroundColor:'#1a1a0a', borderWidth:1, borderColor:'#f5a623', borderRadius:10, padding:10 },
+  warningBannerOver: { backgroundColor:'#2a0a0a', borderColor:'#ff4d6a' },
+  warningText: { color:'#f5a623', fontSize:12, fontWeight:'600' },
+  warningTextOver: { color:'#ff4d6a' },
+  noAccount: { flex:1, alignItems:'center', justifyContent:'center' },
+  noAccountText: { color:'#555', fontSize:14 },
   scroll: { flex:1 },
   section: { padding:16, marginBottom:8 },
   sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10 },
