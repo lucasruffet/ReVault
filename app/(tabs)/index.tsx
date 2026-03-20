@@ -56,7 +56,7 @@ useFocusEffect(
   const carryOver = transactions.filter(t => {
     const [y, m] = t.date.split('-').map(Number)
     return new Date(y, m-1, 1) < new Date(currentYear, currentMonth, 1)
-  }).reduce((acc, t) => acc + (t.type === 'income' ? t.amount : -t.amount), 0)
+  }).reduce((acc, t) => acc + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : t.type === 'investment' ? -t.amount : 0), 0)
 
   const monthTx = transactions.filter(t => {
     const [y, m] = t.date.split('-').map(Number)
@@ -65,7 +65,8 @@ useFocusEffect(
 
   const totalIn = monthTx.filter(t => t.type === 'income').reduce((a,b) => a+b.amount, 0)
   const totalOut = monthTx.filter(t => t.type === 'expense').reduce((a,b) => a+b.amount, 0)
-  const balance = carryOver + totalIn - totalOut
+  const totalInvested = monthTx.filter(t => t.type === 'investment').reduce((a,b) => a+b.amount, 0)
+  const balance = carryOver + totalIn - totalOut - totalInvested
   const saved = totalIn - totalOut
   const savedPct = totalIn > 0 ? Math.max(0, Math.min(100, (saved/totalIn)*100)) : 0
 
@@ -103,6 +104,11 @@ useFocusEffect(
               <View style={[s.dot, {backgroundColor:'#ff4d6a'}]} />
               <Text style={s.balanceMiniText}>{fmt(totalOut)} gastos</Text>
             </View>
+            {totalInvested > 0 && (
+              <View style={s.investedPill}>
+                <Text style={s.investedPillText}>{fmt(totalInvested)} invertido</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -153,8 +159,8 @@ useFocusEffect(
                   <Text style={s.itemName}>{t.name}</Text>
                   <Text style={s.itemSub}>{t.date}</Text>
                 </View>
-                <Text style={[s.itemAmount, t.type === 'income' ? {color:'#3bf5a0'} : {color:'#ff4d6a'}]}>
-                  {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
+                <Text style={[s.itemAmount, t.type === 'income' ? {color:'#3bf5a0'} : t.type === 'investment' ? {color:'#00c2b8'} : {color:'#ff4d6a'}]}>
+                  {t.type === 'income' ? '+' : t.type === 'investment' ? '▲' : '-'}{fmt(t.amount)}
                 </Text>
               </View>
             ))
@@ -202,4 +208,6 @@ const s = StyleSheet.create({
   itemSub: { color:'#555', fontSize:10, marginTop:2 },
   itemAmount: { fontWeight:'700', fontSize:13 },
   empty: { color:'#333', fontSize:12, textAlign:'center', padding:20 },
+  investedPill: { backgroundColor:'rgba(0,194,184,0.15)', borderWidth:1, borderColor:'rgba(0,194,184,0.4)', borderRadius:99, paddingHorizontal:8, paddingVertical:2 },
+  investedPillText: { color:'#00c2b8', fontSize:11, fontWeight:'700' },
 })

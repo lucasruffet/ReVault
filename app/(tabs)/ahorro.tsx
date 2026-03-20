@@ -18,9 +18,10 @@ export default function Ahorro() {
     data.forEach((t: any) => {
       const [y, m] = t.date.split('-')
       const key = `${y}-${m}`
-      if (!grouped[key]) grouped[key] = { year: y, month: parseInt(m)-1, income: 0, expense: 0 }
+      if (!grouped[key]) grouped[key] = { year: y, month: parseInt(m)-1, income: 0, expense: 0, investment: 0 }
       if (t.type === 'income') grouped[key].income += t.amount
-      else grouped[key].expense += t.amount
+      else if (t.type === 'expense') grouped[key].expense += t.amount
+      else if (t.type === 'investment') grouped[key].investment += t.amount
     })
     let accum = 0
     const result = Object.values(grouped).map((d: any) => {
@@ -43,6 +44,7 @@ export default function Ahorro() {
 
   const fmt = (n: number) => '$' + Math.abs(n).toLocaleString('es-AR', {maximumFractionDigits:0})
   const totalAccum = monthlyData.length > 0 ? monthlyData[0].accum : 0
+  const totalInvested = monthlyData.reduce((sum, d) => sum + (d.investment || 0), 0)
 
   return (
     <View style={s.container}>
@@ -71,7 +73,7 @@ export default function Ahorro() {
                 <View style={[s.bar, {width: `${d.pct}%`}]} />
               </View>
               <View style={s.cardFooter}>
-                <Text style={s.cardSub}>Ingresó {fmt(d.income)} · Gastó {fmt(d.expense)}</Text>
+                <Text style={s.cardSub}>Ingresó {fmt(d.income)} · Gastó {fmt(d.expense)}{d.investment > 0 ? ` · Invirtió ${fmt(d.investment)}` : ''}</Text>
                 <Text style={s.cardPct}>{d.pct.toFixed(0)}%</Text>
               </View>
               <View style={s.accumRow}>
@@ -83,6 +85,19 @@ export default function Ahorro() {
             </View>
           ))
         }
+
+        {totalInvested > 0 && (
+          <View style={s.investSection}>
+            <Text style={s.investLabel}>TOTAL INVERTIDO</Text>
+            <Text style={s.investTotal}>{fmt(totalInvested)}</Text>
+            {monthlyData.filter(d => d.investment > 0).map((d, i) => (
+              <View key={i} style={s.investRow}>
+                <Text style={s.investMonth}>{MONTHS[d.month]} {d.year}</Text>
+                <Text style={s.investAmt}>{fmt(d.investment)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   )
@@ -109,4 +124,10 @@ const s = StyleSheet.create({
   accumRow: { flexDirection:'row', justifyContent:'space-between', marginTop:10, paddingTop:10, borderTopWidth:1, borderTopColor:'#2a2a30' },
   accumLabel: { color:'#555', fontSize:12 },
   accumVal: { color:'#3bf5a0', fontSize:12, fontWeight:'700' },
+  investSection: { backgroundColor:'#0a1f1e', borderWidth:1, borderColor:'#00c2b8', borderRadius:16, padding:16, marginBottom:24 },
+  investLabel: { color:'rgba(0,194,184,0.6)', fontSize:11, fontWeight:'700', letterSpacing:1.5, marginBottom:6 },
+  investTotal: { color:'#00c2b8', fontSize:32, fontWeight:'800', letterSpacing:-1, marginBottom:12 },
+  investRow: { flexDirection:'row', justifyContent:'space-between', paddingVertical:6, borderTopWidth:1, borderTopColor:'rgba(0,194,184,0.15)' },
+  investMonth: { color:'#888', fontSize:13 },
+  investAmt: { color:'#00c2b8', fontSize:13, fontWeight:'700' },
 })

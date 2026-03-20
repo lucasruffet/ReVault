@@ -5,7 +5,8 @@ import { supabase } from '../../supabase'
 
 const CATS = {
   income: ['💼 Sueldo','💻 Freelance','📈 Inversiones','🎁 Otros'],
-  expense: ['🏋️ Deporte','🎮 Ocio','💊 Medicina','🚗 Transporte','✈️ Viaje','🍔 Comida','🛍️ Ropa','🏠 Hogar','📱 Tech','💸 Otros']
+  expense: ['🏋️ Deporte','🎮 Ocio','💊 Medicina','🚗 Transporte','✈️ Viaje','🍔 Comida','🛍️ Ropa','🏠 Hogar','📱 Tech','💸 Otros'],
+  investment: ['💰 BTC','💵 USD','📊 S&P500','🏦 CEDEARs','📈 Fondos','⏰ Plazo Fijo','💎 Otros']
 }
 
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -13,11 +14,14 @@ const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto
 export default function Movimientos() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [modalVisible, setModalVisible] = useState(false)
-  const [modalType, setModalType] = useState<'income'|'expense'>('income')
+  const [modalType, setModalType] = useState<'income'|'expense'|'investment'>('income')
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
   const [selectedCat, setSelectedCat] = useState('')
   const [loading, setLoading] = useState(false)
+  const [customCats, setCustomCats] = useState<string[]>([])
+  const [showCustomInput, setShowCustomInput] = useState(false)
+  const [customCatText, setCustomCatText] = useState('')
   const now = new Date()
   const [currentMonth, setCurrentMonth] = useState(now.getMonth())
   const [currentYear, setCurrentYear] = useState(now.getFullYear())
@@ -56,10 +60,22 @@ export default function Movimientos() {
     ])
   }
 
-  function openModal(type: 'income'|'expense') {
-    setModalType(type); setName(''); setAmount(''); setSelectedCat(''); setModalVisible(true)
+  function openModal(type: 'income'|'expense'|'investment') {
+    setModalType(type); setName(''); setAmount(''); setSelectedCat('')
+    setCustomCats([]); setShowCustomInput(false); setCustomCatText('')
+    setModalVisible(true)
   }
   function closeModal() { setModalVisible(false) }
+
+  function confirmCustomCat() {
+    const trimmed = customCatText.trim()
+    if (!trimmed) { setShowCustomInput(false); return }
+    const cat = '🏷️ ' + trimmed
+    setCustomCats(prev => [...prev, cat])
+    setSelectedCat(cat)
+    setShowCustomInput(false)
+    setCustomCatText('')
+  }
 
   function changeMonth(dir: number) {
     let m = currentMonth + dir, y = currentYear
@@ -69,9 +85,10 @@ export default function Movimientos() {
 
   const income = transactions.filter(t => t.type === 'income')
   const expense = transactions.filter(t => t.type === 'expense')
+  const investment = transactions.filter(t => t.type === 'investment')
   const fmt = (n: number) => '$' + Math.abs(n).toLocaleString('es-AR', {maximumFractionDigits:0})
 
-  const renderItem = (t: any, type: 'income'|'expense') => (
+  const renderItem = (t: any, type: 'income'|'expense'|'investment') => (
     <View key={t.id} style={s.itemWrap}>
       <View style={s.item}>
         <Text style={s.itemEmoji}>{t.category.split(' ')[0]}</Text>
@@ -79,8 +96,8 @@ export default function Movimientos() {
           <Text style={s.itemName}>{t.name}</Text>
           <Text style={s.itemSub}>{t.category.split(' ').slice(1).join(' ')} · {t.date}</Text>
         </View>
-        <Text style={[s.itemAmount, {color: type==='income'?'#3bf5a0':'#ff4d6a'}]}>
-          {type==='income'?'+':'-'}{fmt(t.amount)}
+        <Text style={[s.itemAmount, {color: type==='income'?'#3bf5a0':type==='investment'?'#00c2b8':'#ff4d6a'}]}>
+          {type==='income'?'+':type==='investment'?'▲':'-'}{fmt(t.amount)}
         </Text>
         <TouchableOpacity style={s.delBtn} onPress={() => deleteTransaction(t.id)}>
           <Text style={s.delBtnText}>×</Text>
@@ -123,28 +140,62 @@ export default function Movimientos() {
             : expense.map(t => renderItem(t, 'expense'))
           }
         </View>
+
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>INVERSIONES</Text>
+            <TouchableOpacity style={[s.addBtn, {backgroundColor:'#00c2b8'}]} onPress={() => openModal('investment')}>
+              <Text style={s.addBtnText}>+ Agregar</Text>
+            </TouchableOpacity>
+          </View>
+          {investment.length === 0
+            ? <Text style={s.empty}>Sin inversiones</Text>
+            : investment.map(t => renderItem(t, 'investment'))
+          }
+        </View>
       </ScrollView>
 
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <TouchableOpacity style={s.modalBg} onPress={closeModal} />
           <View style={s.modal}>
-            <Text style={s.modalTitle}>{modalType === 'income' ? 'Nuevo ingreso' : 'Nuevo gasto'}</Text>
+            <Text style={s.modalTitle}>{modalType === 'income' ? 'Nuevo ingreso' : modalType === 'expense' ? 'Nuevo gasto' : 'Nueva inversión'}</Text>
             <TextInput style={s.input} placeholder="Descripción" placeholderTextColor="#555" value={name} onChangeText={setName} />
             <TextInput style={s.input} placeholder="Monto" placeholderTextColor="#555" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
             <Text style={s.catLabel}>CATEGORÍA</Text>
             <View style={s.pills}>
-              {CATS[modalType].map(c => (
+              {[...CATS[modalType], ...customCats].map(c => (
                 <TouchableOpacity key={c} style={[s.pill, selectedCat===c && s.pillSelected]} onPress={() => setSelectedCat(c)}>
                   <Text style={[s.pillText, selectedCat===c && {color:'#c8f135'}]}>{c}</Text>
                 </TouchableOpacity>
               ))}
+              {showCustomInput ? (
+                <View style={s.customCatRow}>
+                  <TextInput
+                    style={s.customCatInput}
+                    placeholder="Nueva categoría..."
+                    placeholderTextColor="#555"
+                    value={customCatText}
+                    onChangeText={setCustomCatText}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={confirmCustomCat}
+                  />
+                  <TouchableOpacity style={s.customCatConfirm} onPress={confirmCustomCat}>
+                    <Text style={s.customCatConfirmText}>✓</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={s.pillAdd} onPress={() => setShowCustomInput(true)}>
+                  <Text style={s.pillAddText}>+</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <View style={s.modalActions}>
               <TouchableOpacity style={s.btnCancel} onPress={closeModal}>
                 <Text style={s.btnCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}]} onPress={addTransaction} disabled={loading}>
+              <TouchableOpacity style={[s.btnConfirm, modalType==='expense' && {backgroundColor:'#ff4d6a'}, modalType==='investment' && {backgroundColor:'#00c2b8'}]} onPress={addTransaction} disabled={loading}>
                 <Text style={s.btnConfirmText}>{loading ? 'Guardando...' : 'Guardar'}</Text>
               </TouchableOpacity>
             </View>
@@ -186,6 +237,12 @@ const s = StyleSheet.create({
   pill: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:20, paddingHorizontal:10, paddingVertical:5 },
   pillSelected: { borderColor:'#c8f135' },
   pillText: { color:'#f0f0f0', fontSize:11 },
+  pillAdd: { backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:20, paddingHorizontal:10, paddingVertical:5 },
+  pillAddText: { color:'#555', fontSize:15, fontWeight:'700', lineHeight:16 },
+  customCatRow: { flexDirection:'row', alignItems:'center', gap:6, width:'100%', marginTop:2 },
+  customCatInput: { flex:1, backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#c8f135', borderRadius:20, paddingHorizontal:12, paddingVertical:5, color:'#f0f0f0', fontSize:12 },
+  customCatConfirm: { backgroundColor:'#c8f135', borderRadius:20, paddingHorizontal:10, paddingVertical:5 },
+  customCatConfirmText: { color:'#0d0d0f', fontWeight:'800', fontSize:13 },
   modalActions: { flexDirection:'row', gap:10 },
   btnCancel: { flex:1, backgroundColor:'#1a1a1e', borderWidth:1, borderColor:'#2a2a30', borderRadius:12, padding:14, alignItems:'center' },
   btnCancelText: { color:'#f0f0f0', fontWeight:'700' },
