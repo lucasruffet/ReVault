@@ -1,7 +1,7 @@
-import { Session } from '@supabase/supabase-js'
+import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
 import { Stack, router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { AccountProvider } from '../context/AccountContext'
 import { supabase } from '../supabase'
 
@@ -15,29 +15,29 @@ Notifications.setNotificationHandler({
   }),
 })
 
+async function handleDeepLink(url: string) {
+  const { queryParams } = Linking.parse(url)
+  if (queryParams?.code) {
+    await supabase.auth.exchangeCodeForSession(queryParams.code as string)
+  }
+}
+
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
+    // Handle deep link when app is opened from the confirmation email
+    Linking.getInitialURL().then(url => { if (url) handleDeepLink(url) })
+    const linkSub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url))
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      if (session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') {
+        if (session) router.replace('/(tabs)')
+        else router.replace('/')
+      } else if (event === 'SIGNED_IN') {
         router.replace('/(tabs)')
-      } else {
-        router.replace('/')
       }
     })
-
-    return () => subscription.unsubscribe()
+    return () => { subscription.unsubscribe(); linkSub.remove() }
   }, [])
-
-  if (loading) return null
 
   return (
     <AccountProvider>

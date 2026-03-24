@@ -83,6 +83,20 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshAccounts()
     refreshPlan()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setAccounts([])
+        currentAccountRef.current = null
+        setCurrentAccountState(null)
+        setPlan('free')
+      } else if (event === 'SIGNED_IN') {
+        refreshAccounts()
+        refreshPlan()
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   return (

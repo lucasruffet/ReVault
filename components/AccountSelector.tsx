@@ -92,7 +92,7 @@ export default function AccountSelector() {
   return (
     <>
       {accounts.length === 0 ? (
-        <TouchableOpacity style={s.selectorEmpty} onPress={plan === 'free' ? alertProFeature : openCreate}>
+        <TouchableOpacity style={s.selectorEmpty} onPress={openCreate}>
           <Text style={s.selectorEmptyText}>+ Nueva cuenta</Text>
         </TouchableOpacity>
       ) : (

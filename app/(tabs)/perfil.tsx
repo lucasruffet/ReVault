@@ -1,7 +1,10 @@
 import * as ImagePicker from 'expo-image-picker'
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+
+import { CommonActions } from '@react-navigation/native'
+import { useNavigation } from '@react-navigation/native'
 import AccountSelector from '../../components/AccountSelector'
 import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
@@ -12,6 +15,7 @@ export default function Perfil() {
   const [editName, setEditName] = useState('')
   const [showEditName, setShowEditName] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const navigation = useNavigation()
 
   useFocusEffect(useCallback(() => { fetchProfile(); refreshPlan() }, []))
   useEffect(() => { fetchProfile() }, [])
@@ -69,10 +73,15 @@ export default function Perfil() {
     }
   }
 
-  async function handleLogout() {
+  function handleLogout() {
     Alert.alert('Cerrar sesión', '¿Seguro que querés salir?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Salir', style: 'destructive', onPress: async () => { await supabase.auth.signOut() }}
+      { text: 'Salir', style: 'destructive', onPress: () => {
+        // getParent() goes from Tab navigator up to the root Stack navigator
+        const rootNav = (navigation.getParent() as any) ?? navigation
+        rootNav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'index' }] }))
+        supabase.auth.signOut()
+      }}
     ])
   }
 
