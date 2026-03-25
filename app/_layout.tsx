@@ -15,9 +15,14 @@ Notifications.setNotificationHandler({
   }),
 })
 
+const SUPABASE_HOST = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace('https://', '') ?? ''
+
 async function handleDeepLink(url: string) {
-  const { queryParams } = Linking.parse(url)
-  if (queryParams?.code) {
+  const parsed = Linking.parse(url)
+  const { queryParams } = parsed
+  // Only exchange codes that originate from our Supabase project
+  const host = parsed.hostname ?? ''
+  if (queryParams?.code && (host === SUPABASE_HOST || host === '' /* app-scheme deep links */)) {
     await supabase.auth.exchangeCodeForSession(queryParams.code as string)
   }
 }

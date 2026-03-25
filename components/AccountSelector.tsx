@@ -47,14 +47,14 @@ export default function AccountSelector() {
         const { error } = await supabase.from('accounts')
           .update({ name: newName.trim(), icon: newIcon, color: newColor })
           .eq('id', editingAccount.id)
-        if (error) { Alert.alert('Error', error.message); return }
+        if (error) { Alert.alert('Error', 'No se pudo actualizar la cuenta'); return }
       } else {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) { Alert.alert('Error', 'No hay sesión activa'); return }
         const { data: newAcc, error } = await supabase.from('accounts').insert({
           user_id: user.id, name: newName.trim(), icon: newIcon, color: newColor
         }).select().single()
-        if (error) { Alert.alert('Error', error.message); return }
+        if (error) { Alert.alert('Error', 'No se pudo crear la cuenta'); return }
         // If this is the first account, migrate existing transactions with no account
         if (accounts.length === 0 && newAcc) {
           await supabase.from('transactions')

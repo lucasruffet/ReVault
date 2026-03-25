@@ -28,20 +28,6 @@ async function requestAndSendNotification(category: string, pct: number, spent: 
   } catch (_) {}
 }
 
-async function sendBudgetNotification(category: string, pct: number, spent: number, limit: number) {
-  const granted = await requestNotificationPermission()
-  if (!granted) return
-  const over = pct >= 1
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: over ? `🚨 Presupuesto superado: ${category}` : `⚠️ Alerta de presupuesto: ${category}`,
-      body: over
-        ? `Gastaste $${spent.toLocaleString('es-AR', {maximumFractionDigits:0})} de tu límite de $${limit.toLocaleString('es-AR', {maximumFractionDigits:0})}`
-        : `Alcanzaste el ${Math.round(pct*100)}% de tu presupuesto ($${spent.toLocaleString('es-AR', {maximumFractionDigits:0})} / $${limit.toLocaleString('es-AR', {maximumFractionDigits:0})})`,
-    },
-    trigger: null, // Send immediately
-  })
-}
 
 export default function Presupuesto() {
   const { currentAccount, plan } = useAccount()
@@ -118,7 +104,7 @@ export default function Presupuesto() {
         const { error } = await supabase.from('budgets')
           .update({ category: selCategory, amount: parseFloat(limitAmount) })
           .eq('id', editingBudget.id)
-        if (error) { Alert.alert('Error', error.message); return }
+        if (error) { Alert.alert('Error', 'No se pudo guardar el presupuesto'); return }
       } else {
         // Upsert: if same category already exists, update it
         const { error } = await supabase.from('budgets').upsert({
@@ -127,7 +113,7 @@ export default function Presupuesto() {
           category: selCategory,
           amount: parseFloat(limitAmount),
         }, { onConflict: 'user_id,account_id,category' })
-        if (error) { Alert.alert('Error', error.message); return }
+        if (error) { Alert.alert('Error', 'No se pudo guardar el presupuesto'); return }
       }
       await fetchData()
       setShowModal(false)

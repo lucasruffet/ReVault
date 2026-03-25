@@ -144,7 +144,11 @@ export default function Movimientos() {
   }
 
   async function saveTransaction() {
-    if (!name || !amount || !selectedCat) { Alert.alert('Error', 'Completá todos los campos'); return }
+    if (!name.trim() || !amount || !selectedCat) { Alert.alert('Error', 'Completá todos los campos'); return }
+    if (name.trim().length > 100) { Alert.alert('Error', 'La descripción no puede superar los 100 caracteres'); return }
+    const parsedAmount = parseFloat(amount)
+    if (!isFinite(parsedAmount) || parsedAmount <= 0) { Alert.alert('Error', 'Ingresá un monto válido mayor a 0'); return }
+    if (parsedAmount > 999_999_999) { Alert.alert('Error', 'El monto es demasiado alto'); return }
     if (!currentAccount) { Alert.alert('Error', 'Seleccioná una cuenta primero'); return }
 
     if (!editingId && plan === 'free' && monthCount >= FREE_TX_LIMIT) {
@@ -155,9 +159,9 @@ export default function Movimientos() {
     setLoading(true)
     if (editingId) {
       const { error } = await supabase.from('transactions')
-        .update({ name, amount: parseFloat(amount), category: selectedCat, type: modalType })
+        .update({ name: name.trim(), amount: parsedAmount, category: selectedCat, type: modalType })
         .eq('id', editingId)
-      if (error) Alert.alert('Error', error.message)
+      if (error) Alert.alert('Error', 'No se pudo guardar el movimiento')
       else { fetchTransactions(); closeModal() }
     } else {
       const { data: { user } } = await supabase.auth.getUser()
@@ -165,9 +169,9 @@ export default function Movimientos() {
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
       const { error } = await supabase.from('transactions').insert({
         user_id: user?.id, account_id: currentAccount.id, type: modalType,
-        name, amount: parseFloat(amount), category: selectedCat, date: today
+        name: name.trim(), amount: parsedAmount, category: selectedCat, date: today
       })
-      if (error) Alert.alert('Error', error.message)
+      if (error) Alert.alert('Error', 'No se pudo guardar el movimiento')
       else { fetchTransactions(); closeModal() }
     }
     setLoading(false)

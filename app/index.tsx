@@ -17,13 +17,13 @@ export default function Auth() {
     if (!email || !password) { Alert.alert('Error', 'Completá email y contraseña'); return }
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    if (error) Alert.alert('Error', error.message)
+    if (error) Alert.alert('Error', 'Email o contraseña incorrectos')
     setLoading(false)
   }
 
   async function handleRegister() {
     if (!email || !password) { Alert.alert('Error', 'Completá email y contraseña'); return }
-    if (password.length < 6) { Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres'); return }
+    if (password.length < 8) { Alert.alert('Error', 'La contraseña debe tener al menos 8 caracteres'); return }
     setLoading(true)
     // Use signInWithOtp to send a proper 6-digit OTP for email verification
     const { error } = await supabase.auth.signInWithOtp({
