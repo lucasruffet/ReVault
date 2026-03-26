@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking'
 import { useState } from 'react'
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native'
+import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native'
 import { supabase } from '../supabase'
 
 export default function Auth() {
@@ -98,7 +98,8 @@ export default function Auth() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <Text style={styles.title}>💰 Finanzas</Text>
+      <Image source={require('../assets/images/icon.png')} style={styles.logo} />
+      <Text style={styles.title}>ReVault</Text>
       <Text style={styles.subtitle}>{isLogin ? 'Iniciá sesión' : 'Creá tu cuenta'}</Text>
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#555"
         value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
@@ -116,7 +117,8 @@ export default function Auth() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0d0d0f', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 36, fontWeight: '800', color: '#c8f135', textAlign: 'center', marginBottom: 8 },
+  logo: { width: 90, height: 90, alignSelf: 'center', marginBottom: 12 },
+  title: { fontSize: 36, fontWeight: '800', color: '#f0f0f0', textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 40, lineHeight: 22 },
   input: { backgroundColor: '#141416', borderWidth: 1, borderColor: '#2a2a30', borderRadius: 12, padding: 14, color: '#f0f0f0', fontSize: 16, marginBottom: 12 },
   codeInput: { fontSize: 32, fontWeight: '800', textAlign: 'center', letterSpacing: 12, color: '#c8f135' },

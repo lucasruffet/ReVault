@@ -122,7 +122,7 @@ export default function Movimientos() {
       XLSX.utils.book_append_sheet(wb, ws, `${MONTHS[currentMonth]} ${currentYear}`)
 
       const wbBase64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' })
-      const fileName = `ReValue_${MONTHS[currentMonth]}_${currentYear}.xlsx`
+      const fileName = `ReVault_${MONTHS[currentMonth]}_${currentYear}.xlsx`
       const filePath = FileSystem.cacheDirectory + fileName
       await FileSystem.writeAsStringAsync(filePath, wbBase64, { encoding: 'base64' })
 
