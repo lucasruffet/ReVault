@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ReVault",
-    "slug": "revault",
+    "slug": "cashruff",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -24,7 +24,10 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.lucasruffet9.revault"
+      "package": "com.lucasruffet9.revault",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
