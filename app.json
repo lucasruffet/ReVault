@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ReVault",
-    "slug": "cashruff",
+    "slug": "revault",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lucasruffet9.revault",
+      "bundleIdentifier": "com.rvcash.revault",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -24,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.lucasruffet9.revault",
+      "package": "com.rvcash.revault",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]
@@ -68,10 +68,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
       "eas": {
-        "projectId": "2ba5e7fe-901e-4166-b87f-9567537b50b1"
-      }
+        "projectId": "002e90e5-263e-4b10-8944-adf97280c00c"
+      },
+      "router": {}
     },
     "owner": "lucasruffet9"
   }
