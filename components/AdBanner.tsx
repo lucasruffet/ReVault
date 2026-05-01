@@ -1,7 +1,7 @@
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads'
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads'
 import { useAccount } from '../context/AccountContext'
 
-const AD_UNIT_ID = TestIds.BANNER  // ca-app-pub-3940256099942544/6300978111 (test alias)
+const AD_UNIT_ID = 'ca-app-pub-9760818621347715/4222084139'
 
 export default function AdBanner() {
   const { plan } = useAccount()
