@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker'
-import { useFocusEffect } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 
@@ -135,7 +135,7 @@ export default function Perfil() {
               <Text style={[s.planName, isPro && s.planNamePro]}>{isPro ? '⭐ Pro' : '🆓 Gratuito'}</Text>
             </View>
             {!isPro && (
-              <TouchableOpacity style={s.upgradeBtn} onPress={() => Alert.alert('Próximamente', 'El upgrade a Pro estará disponible pronto.')}>
+              <TouchableOpacity style={s.upgradeBtn} onPress={() => router.push('/paywall' as any)}>
                 <Text style={s.upgradeBtnText}>Mejorar</Text>
               </TouchableOpacity>
             )}

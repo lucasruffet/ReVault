@@ -2,8 +2,11 @@ import * as Linking from 'expo-linking'
 import * as Notifications from 'expo-notifications'
 import { Stack, router } from 'expo-router'
 import { useEffect } from 'react'
+import Purchases from 'react-native-purchases'
 import { AccountProvider } from '../context/AccountContext'
 import { supabase } from '../supabase'
+
+const RC_GOOGLE_KEY = process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY ?? ''
 
 // Configure how notifications are shown while the app is in the foreground.
 // Must be set at the app root level, before any screen renders.
@@ -12,6 +15,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 })
 
@@ -29,15 +34,22 @@ async function handleDeepLink(url: string) {
 
 export default function RootLayout() {
   useEffect(() => {
+    Purchases.configure({ apiKey: RC_GOOGLE_KEY })
+
     // Handle deep link when app is opened from the confirmation email
     Linking.getInitialURL().then(url => { if (url) handleDeepLink(url) })
     const linkSub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION') {
-        if (session) router.replace('/(tabs)')
-        else router.replace('/')
+        if (session) {
+          Purchases.logIn(session.user.id)
+          router.replace('/(tabs)')
+        } else {
+          router.replace('/')
+        }
       } else if (event === 'SIGNED_IN') {
+        if (session) Purchases.logIn(session.user.id)
         router.replace('/(tabs)')
       }
     })
@@ -51,6 +63,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="presupuesto" />
         <Stack.Screen name="graficos" />
+        <Stack.Screen name="paywall" />
       </Stack>
     </AccountProvider>
   )

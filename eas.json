@@ -9,21 +9,24 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://usttcvvkrykjibzelbki.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI"
+        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI",
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_sJQwvHriCmjrphUjVWZhQYxpTLI"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://usttcvvkrykjibzelbki.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI"
+        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI",
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_sJQwvHriCmjrphUjVWZhQYxpTLI"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://usttcvvkrykjibzelbki.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI"
+        "EXPO_PUBLIC_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzdHRjdnZrcnlramliemVsYmtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDk4NDQsImV4cCI6MjA4OTQyNTg0NH0.WUb8UGVlJXr4mJgh-XAzf8_tDq0ydD_vlWgEdxzjcfI",
+        "EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY": "goog_sJQwvHriCmjrphUjVWZhQYxpTLI"
       }
     }
   },

@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import AdBanner from '../../components/AdBanner'
 import AccountSelector from '../../components/AccountSelector'
 import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
@@ -121,6 +122,7 @@ export default function Calendario() {
           )}
         </>
       )}
+      <AdBanner />
     </View>
   )
 }

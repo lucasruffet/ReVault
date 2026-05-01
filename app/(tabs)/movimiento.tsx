@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import AdBanner from '../../components/AdBanner'
 import AccountSelector from '../../components/AccountSelector'
 import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
@@ -344,6 +345,7 @@ export default function Movimientos() {
         </ScrollView>
       )}
 
+      <AdBanner />
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
           <TouchableOpacity style={s.modalBg} onPress={closeModal} />

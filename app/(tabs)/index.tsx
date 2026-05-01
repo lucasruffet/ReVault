@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
+import AdBanner from '../../components/AdBanner'
 import AccountSelector from '../../components/AccountSelector'
 import { useAccount } from '../../context/AccountContext'
 import { supabase } from '../../supabase'
@@ -217,6 +218,7 @@ export default function Resumen() {
           <View style={{height:24}}/>
         </ScrollView>
       )}
+      <AdBanner />
     </View>
   )
 }
